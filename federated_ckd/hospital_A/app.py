@@ -5,6 +5,8 @@ import pandas as pd
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 
+from federated_ckd.fl_core import ALGORITHMS, evaluate
+
 # ---------------- APP ----------------
 app = FastAPI()
 
@@ -108,3 +110,14 @@ def train_local():
         "records_used": len(df),
         "model_saved": "hospitalA_model.pkl"
     }
+
+
+# ---------------- LOCAL TRAINING HELPER FOR ORCHESTRATION ----------------
+def train_local_model(X_local, y_local, algorithm_name: str):
+    model = ALGORITHMS[algorithm_name]()
+    model.fit(X_local, y_local)
+    return model
+
+
+def evaluate_local_model(model, X_test, y_test):
+    return evaluate(model, X_test, y_test)
