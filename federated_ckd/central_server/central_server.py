@@ -1,14 +1,13 @@
-import psycopg2
-import pickle
 from __future__ import annotations
 
 import io
 import json
 import os
+import pickle
 import sqlite3
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 import numpy as np
@@ -172,7 +171,7 @@ def persist_run_start(run_id: str, req: ExperimentRequest, ds: Dict[str, Any], t
             req.random_seed,
             0,
             "running",
-            datetime.utcnow().isoformat(),
+            datetime.now(timezone.utc).isoformat(),
         ),
     )
     conn.commit()
@@ -208,7 +207,13 @@ def persist_run_finish(run_id: str, rows: List[Dict[str, Any]], all_gain_positiv
         SET all_gain_positive=?, status=?, finished_at=?, error_text=?
         WHERE run_id=?
         """,
-        (1 if all_gain_positive else 0, "failed" if error_text else "completed", datetime.utcnow().isoformat(), error_text, run_id),
+        (
+            1 if all_gain_positive else 0,
+            "failed" if error_text else "completed",
+            datetime.now(timezone.utc).isoformat(),
+            error_text,
+            run_id,
+        ),
     )
     conn.commit()
     conn.close()
@@ -250,8 +255,7 @@ def run_aggregation():
     cursor.execute("TRUNCATE TABLE aggregated")
     cursor.execute(
         "INSERT INTO aggregated (model_data) VALUES (%s)",
-        (psycopg2.Binary(pickle.dumps(global_assets)),)
-        (psycopg2.Binary(__import__("pickle").dumps(global_assets)),),
+        (psycopg2.Binary(pickle.dumps(global_assets)),),
     )
     
     conn.commit()
@@ -507,7 +511,7 @@ pre{background:#060d1a;border:1px solid #2e4667;border-radius:10px;padding:10px;
 let poller = null;
 let configuredModels = [];
 
-function esc(s){return (s??'').toString().replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]))}
+function esc(s){return (s??'').toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 
 async function refreshDatasets(){
   const res = await fetch('/api/datasets');
@@ -585,7 +589,7 @@ function renderChart(rows){
 
 async function fetchStatus(){
   const s = await (await fetch('/api/status')).json();
-  logs.textContent = s.logs.join('\n');
+  logs.textContent = s.logs.join('\\n');
   if(!s.running && s.result){
     run_state.textContent = 'completed';
     if(poller) clearInterval(poller);
@@ -636,7 +640,7 @@ def upload_dataset(req: UploadDatasetRequest):
     cur = conn.cursor()
     cur.execute(
         "INSERT INTO datasets (name,uploaded_at,csv_blob,row_count,col_count) VALUES (?,?,?,?,?)",
-        (req.filename, datetime.utcnow().isoformat(), raw, len(df), len(df.columns)),
+        (req.filename, datetime.now(timezone.utc).isoformat(), raw, len(df), len(df.columns)),
     )
     ds_id = cur.lastrowid
     conn.commit()
