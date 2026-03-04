@@ -33,7 +33,6 @@ CENTRAL_DB = {
     "database": "centraldb",
     "user": "adminuser",
     "password": "Phase2ckd",
-    "sslmode": "require"
     "sslmode": "require",
 }
 
